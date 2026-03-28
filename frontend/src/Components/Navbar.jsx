@@ -11,7 +11,7 @@ const Navbar = ({ activePage, setActivePage }) => {
       <div className="sidebar-logo">
         <div className="logo-icon">🎟️</div>
         <div className="logo-text">
-          CinePos
+          Movie-POS
           <span>Admin System</span>
         </div>
       </div>
