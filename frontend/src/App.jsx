@@ -1,121 +1,92 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import React, { useState, useCallback } from 'react';
+import Navbar from './Components/Navbar';
+import Dashboard from './Components/Dashboard';
+import Movies from './Components/Movies';
 
-function App() {
-  const [count, setCount] = useState(0)
+// ─── Seed Data ────────────────────────────────────────────────────────────────
 
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+const SEED_MOVIES = [
+  { movieId: 'MOV-001', movieName: 'Interstellar Odyssey', price: 14.50, releaseDateTime: '2026-04-05T19:30' },
+  { movieId: 'MOV-002', movieName: 'Shadow Protocol',      price: 12.00, releaseDateTime: '2026-04-01T20:00' },
+  { movieId: 'MOV-003', movieName: 'The Last Horizon',     price: 16.00, releaseDateTime: '2026-03-30T18:00' },
+  { movieId: 'MOV-004', movieName: 'Crimson Tide Rising',  price: 11.50, releaseDateTime: '2026-04-20T21:00' },
+  { movieId: 'MOV-005', movieName: 'Neon Genesis',         price: 13.00, releaseDateTime: '2026-04-10T18:30' },
+];
 
-      <div className="ticks"></div>
+// ─── Toast ────────────────────────────────────────────────────────────────────
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+function useToast() {
+  const [toasts, setToasts] = useState([]);
+  const addToast = useCallback((msg, type = 'success') => {
+    const id = Date.now();
+    setToasts(t => [...t, { id, msg, type }]);
+    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3000);
+  }, []);
+  return { toasts, addToast };
 }
 
-export default App
+// ─── App ──────────────────────────────────────────────────────────────────────
+
+function App() {
+  const [activePage, setActivePage] = useState('dashboard');
+  const [movies, setMovies] = useState(SEED_MOVIES);
+  const { toasts, addToast } = useToast();
+
+  const handleAddMovie = useCallback((movie) => {
+    setMovies(prev => {
+      if (prev.find(m => m.movieId === movie.movieId)) {
+        addToast('Movie ID already exists!', 'error');
+        return prev;
+      }
+      addToast(`"${movie.movieName}" added successfully!`);
+      return [...prev, movie];
+    });
+  }, [addToast]);
+
+  const handleEditMovie = useCallback((updated) => {
+    setMovies(prev => prev.map(m => m.movieId === updated.movieId ? updated : m));
+    addToast(`"${updated.movieName}" updated!`);
+  }, [addToast]);
+
+  const handleDeleteMovie = useCallback((id) => {
+    setMovies(prev => {
+      const movie = prev.find(m => m.movieId === id);
+      if (movie) addToast(`"${movie.movieName}" deleted.`, 'error');
+      return prev.filter(m => m.movieId !== id);
+    });
+  }, [addToast]);
+
+  return (
+    <div className="app-layout">
+      <Navbar activePage={activePage} setActivePage={setActivePage} />
+
+      <main className="main-content">
+        {activePage === 'dashboard' && (
+          <Dashboard
+            movies={movies}
+            onAddMovie={handleAddMovie}
+          />
+        )}
+        {activePage === 'movies' && (
+          <Movies
+            movies={movies}
+            onEdit={handleEditMovie}
+            onDelete={handleDeleteMovie}
+          />
+        )}
+      </main>
+
+      {/* Toast Container */}
+      <div className="toast-container">
+        {toasts.map(t => (
+          <div key={t.id} className={`toast toast-${t.type}`}>
+            <span className="toast-icon">{t.type === 'success' ? '✅' : '❌'}</span>
+            <span className="toast-msg">{t.msg}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default App;
