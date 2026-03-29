@@ -1,17 +1,10 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import Navbar from './Components/Navbar';
 import Dashboard from './Components/Dashboard';
 import Movies from './Components/Movies';
 
-// ─── Seed Data ────────────────────────────────────────────────────────────────
-
-const SEED_MOVIES = [
-  { movieId: 'MOV-001', movieName: 'Interstellar Odyssey', price: 14.50, releaseDateTime: '2026-04-05T19:30' },
-  { movieId: 'MOV-002', movieName: 'Shadow Protocol',      price: 12.00, releaseDateTime: '2026-04-01T20:00' },
-  { movieId: 'MOV-003', movieName: 'The Last Horizon',     price: 16.00, releaseDateTime: '2026-03-30T18:00' },
-  { movieId: 'MOV-004', movieName: 'Crimson Tide Rising',  price: 11.50, releaseDateTime: '2026-04-20T21:00' },
-  { movieId: 'MOV-005', movieName: 'Neon Genesis',         price: 13.00, releaseDateTime: '2026-04-10T18:30' },
-];
+// ─── Constants ────────────────────────────────────────────────────────────────
+const API_BASE = 'http://127.0.0.1:8000';
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 
@@ -29,32 +22,105 @@ function useToast() {
 
 function App() {
   const [activePage, setActivePage] = useState('dashboard');
-  const [movies, setMovies] = useState(SEED_MOVIES);
+  const [movies, setMovies] = useState([]);
   const { toasts, addToast } = useToast();
 
-  const handleAddMovie = useCallback((movie) => {
-    setMovies(prev => {
-      if (prev.find(m => m.movieId === movie.movieId)) {
-        addToast('Movie ID already exists!', 'error');
-        return prev;
+  // Fetch movies from database
+  const fetchMovies = useCallback(async () => {
+    try {
+      const resp = await fetch(`${API_BASE}/Get_Movies.php`);
+      const result = await resp.json();
+      if (result.status === 200) {
+        // Map database fields to frontend fields
+        const mapped = result.data.map(m => ({
+          movieId: m.id, // Using DB numeric ID as movieId
+          movieName: m.MovieName,
+          price: m.ticketprice,
+          releaseDateTime: m.ReleasDate,
+          status: m.Status
+        }));
+        setMovies(mapped);
       }
-      addToast(`"${movie.movieName}" added successfully!`);
-      return [...prev, movie];
-    });
+    } catch (err) {
+      console.error('Fetch error:', err);
+      addToast('Failed to load movies from server.', 'error');
+    }
   }, [addToast]);
 
-  const handleEditMovie = useCallback((updated) => {
-    setMovies(prev => prev.map(m => m.movieId === updated.movieId ? updated : m));
-    addToast(`"${updated.movieName}" updated!`);
-  }, [addToast]);
+  useEffect(() => {
+    fetchMovies();
+  }, [fetchMovies]);
 
-  const handleDeleteMovie = useCallback((id) => {
-    setMovies(prev => {
-      const movie = prev.find(m => m.movieId === id);
-      if (movie) addToast(`"${movie.movieName}" deleted.`, 'error');
-      return prev.filter(m => m.movieId !== id);
-    });
-  }, [addToast]);
+  const handleAddMovie = useCallback(async (movie) => {
+    try {
+      const resp = await fetch(`${API_BASE}/Save_Movie.php`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          MovieName: movie.movieName,
+          ReleasDate: movie.releaseDateTime,
+          ticketprice: movie.price,
+          Status: movie.status
+        })
+      });
+      const result = await resp.json();
+      if (result.status === 201) {
+        addToast(`"${movie.movieName}" saved to database!`);
+        fetchMovies(); // Refresh list to get new DB ID
+      } else {
+        addToast(result.message || 'Failed to save movie.', 'error');
+      }
+    } catch (err) {
+      console.error('Save error:', err);
+      addToast('Error connecting to backend.', 'error');
+    }
+  }, [addToast, fetchMovies]);
+
+  const handleEditMovie = useCallback(async (updated) => {
+    try {
+      const resp = await fetch(`${API_BASE}/Update_Movie.php`, {
+        method: 'POST', // or PUT if defined that way in backend
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: updated.movieId, // Use DB id
+          MovieName: updated.movieName,
+          ReleasDate: updated.releaseDateTime,
+          ticketprice: updated.price,
+          Status: updated.status
+        })
+      });
+      const result = await resp.json();
+      if (result.status === 200) {
+        addToast(`"${updated.movieName}" updated in database!`);
+        fetchMovies();
+      } else {
+        addToast(result.message || 'Update failed.', 'error');
+      }
+    } catch (err) {
+      console.error('Update error:', err);
+      addToast('Error updating movie.', 'error');
+    }
+  }, [addToast, fetchMovies]);
+
+  const handleDeleteMovie = useCallback(async (id) => {
+    try {
+      const resp = await fetch(`${API_BASE}/Delete_Movie.php`, {
+        method: 'POST', // Usually PHP handles delete via POST or specific method
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+      const result = await resp.json();
+      if (result.status === 200) {
+        addToast(`Movie deleted from database.`, 'error');
+        fetchMovies();
+      } else {
+        addToast(result.message || 'Delete failed.', 'error');
+      }
+    } catch (err) {
+      console.error('Delete error:', err);
+      addToast('Error deleting movie.', 'error');
+    }
+  }, [addToast, fetchMovies]);
 
   return (
     <div className="app-layout">
